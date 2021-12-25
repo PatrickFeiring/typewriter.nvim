@@ -58,24 +58,38 @@ function Node.new(name, n, parent)
     return self
 end
 
-function Node:print()
-    output = self.name
+function Node:get_output()
+    local text = self.name
+    local marks = {}
 
-    if #self.children > 0 then
-        output = output .. "["
+    if self.n > 0 then
+        text = text .. "["
 
-        for i, child in ipairs(self.children) do
+        for i = 1, self.n do
             if i > 1 then
-                output = output .. ", "
+                text = text .. ", "
             end
 
-            output = output .. child:print()
+            if i > #self.children then
+                table.insert(marks, #text)
+            else
+                output = self.children[i]:get_output(child)
+
+                for j = 1, #output.marks do
+                    table.insert(marks, #text + output.marks[j])
+                end
+
+                text = text .. output.text
+            end
         end
 
-        output = output .. "]"
+        text = text .. "]"
     end
 
-    return output
+    return {
+        text = text,
+        marks = marks,
+    }
 end
 
 local function parse_char(char)
@@ -257,7 +271,8 @@ function M.expand()
     local tree = parse(before_cursor:sub(expansion.start, cursor[2]))
 
     if tree ~= nil then
-        local expanded = expansion.prefix .. tree:print()
+        local output = tree:get_output()
+        local expanded = expansion.prefix .. output.text
 
         a.nvim_buf_set_text(
             bufnr,
