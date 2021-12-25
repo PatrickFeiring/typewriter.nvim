@@ -120,13 +120,12 @@ local function parse(snippet_text)
         return
     end
 
-    tree = nil
-    current = nil
+    local tree = nil
+    local current = nil
 
     for i = 1, #snippet_text do
         local char = snippet_text:sub(i, i)
-
-        node = parse_char(char)
+        local node = parse_char(char)
 
         if not node then
             return
@@ -199,7 +198,7 @@ end
 
 local function get_expansion(before_cursor)
     for i = #before_cursor, 1, -1 do
-        stop = get_stop(before_cursor, i)
+        local stop = get_stop(before_cursor, i)
 
         if stop then
             return {
@@ -211,11 +210,11 @@ local function get_expansion(before_cursor)
 
         if before_cursor:sub(i, i) == " " then
             for j = i - 1, 1, -1 do
-                char = before_cursor:sub(j, j)
+                local char = before_cursor:sub(j, j)
 
                 if char == " " then
                 else
-                    stop = get_stop(before_cursor, j)
+                    local stop = get_stop(before_cursor, j)
 
                     if stop then
                         return {
@@ -239,26 +238,26 @@ local function get_expansion(before_cursor)
 end
 
 function M.expand()
-    cursor = a.nvim_win_get_cursor(0)
+    local cursor = a.nvim_win_get_cursor(0)
 
     if not is_position_in_lang(cursor, "python") then
         return
     end
 
-    bufnr = a.nvim_win_get_buf(0)
-    line = a.nvim_buf_get_lines(bufr, cursor[1] - 1, cursor[1], true)[1]
-    before_cursor = line:sub(0, cursor[2])
+    local bufnr = a.nvim_win_get_buf(0)
+    local line = a.nvim_buf_get_lines(bufr, cursor[1] - 1, cursor[1], true)[1]
+    local before_cursor = line:sub(0, cursor[2])
 
-    expansion = get_expansion(before_cursor)
+    local expansion = get_expansion(before_cursor)
 
     if not expansion then
         return nil
     end
 
-    tree = parse(before_cursor:sub(expansion.start, cursor[2]))
+    local tree = parse(before_cursor:sub(expansion.start, cursor[2]))
 
     if tree ~= nil then
-        expanded = expansion.prefix .. tree:print()
+        local expanded = expansion.prefix .. tree:print()
 
         a.nvim_buf_set_text(
             bufnr,
