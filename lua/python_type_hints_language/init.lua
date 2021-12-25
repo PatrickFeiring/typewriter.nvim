@@ -113,7 +113,7 @@ local function parse_char(char)
         return Node.new("list", 1)
     elseif char == "L" then
         return Node.new("Literal", math.huge)
-    elseif char == "O" then
+    elseif char == "O" or char == "o" then
         return Node.new("Optional", 1)
     elseif char == "t" then
         return Node.new("tuple", math.huge)
