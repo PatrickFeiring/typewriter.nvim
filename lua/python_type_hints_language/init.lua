@@ -272,7 +272,6 @@ function M.expand()
 
     if tree ~= nil then
         local output = tree:get_output()
-        local expanded = expansion.prefix .. output.text
 
         a.nvim_buf_set_text(
             bufnr,
@@ -280,12 +279,16 @@ function M.expand()
             expansion.replace - 1, -- From lua 1 based to 0 based
             cursor[1] - 1,
             cursor[2],
-            { expanded }
+            { expansion.prefix .. output.text }
         )
-        a.nvim_win_set_cursor(
-            0,
-            { cursor[1], expansion.replace - 1 + #expanded }
-        )
+
+        if #output.marks > 0 then
+            col = expansion.replace - 1 + #expansion.prefix + output.marks[1]
+        else
+            col = expansion.replace - 1 + #expansion.prefix + #output.text
+        end
+
+        a.nvim_win_set_cursor(0, { cursor[1], col })
 
         return true
     end
