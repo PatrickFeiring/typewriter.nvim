@@ -109,6 +109,8 @@ local function parse_char(char)
         return Node.new("dict", 2)
     elseif char == "F" then
         return Node.new("Final", 1)
+    elseif char == "I" then
+        return Node.new("Iterator", 1)
     elseif char == "l" then
         return Node.new("list", 1)
     elseif char == "L" then
@@ -117,6 +119,8 @@ local function parse_char(char)
         return Node.new("Optional", 1)
     elseif char == "t" then
         return Node.new("tuple", math.huge)
+    elseif char == "U" or char == "u" then
+        return Node.new("Union", math.huge)
     end
 
     return nil
