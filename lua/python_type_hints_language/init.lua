@@ -1,43 +1,9 @@
 local M = {}
 
 local a = vim.api
-local ok_parsers, ts_parsers = pcall(require, "nvim-treesitter.parsers")
-
-if not ok_parsers then
-    ts_parsers = nil
-end
-
--- Determines if position is located in a section with given language.
---
--- With treesitter, we can detect the language also of embedded code, e.g. a
--- python block in markdown.
---
--- If treesitter is not installed, we fall back to the file type.
---
-local function is_position_in_lang(position, lang)
-    if not ts_parsers then
-        return vim.bo.filetype == lang
-    end
-
-    local parser = ts_parsers.get_parser()
-
-    if not parser then
-        return vim.bo.filetype == lang
-    end
-
-    tree = parser:language_for_range({
-        position[1] - 1,
-        position[2],
-        position[1] - 1,
-        position[2],
-    })
-
-    if not tree then
-        return vim.bo.filetype == lang
-    end
-
-    return tree:lang() == lang
-end
+local language_detection = require(
+    "python_type_hints_language.language_detection"
+)
 
 local Node = {}
 Node.__index = Node
@@ -255,13 +221,12 @@ local function get_expansion(before_cursor)
     return nil
 end
 
-function M.expand()
-    local cursor = a.nvim_win_get_cursor(0)
-
-    if not is_position_in_lang(cursor, "python") then
-        return
+local function get_expansion_result()
+    if language_detection.from_treesitter_or_filetype() ~= "python" then
+        return nil
     end
 
+    local cursor = a.nvim_win_get_cursor(0)
     local bufnr = a.nvim_win_get_buf(0)
     local line = a.nvim_buf_get_lines(bufr, cursor[1] - 1, cursor[1], true)[1]
     local before_cursor = line:sub(0, cursor[2])
@@ -273,6 +238,30 @@ function M.expand()
     end
 
     local tree = parse(before_cursor:sub(expansion.start, cursor[2]))
+
+    return {
+        bufnr = bufnr,
+        cursor = cursor,
+        tree = tree,
+        expansion = expansion,
+    }
+end
+
+function M.expandable()
+    return get_expansion_result() ~= nil
+end
+
+function M.expand()
+    local expansion_result = get_expansion_result()
+
+    if expansion_result == nil then
+        return nil
+    end
+
+    local bufnr = expansion_result.bufnr
+    local cursor = expansion_result.cursor
+    local expansion = expansion_result.expansion
+    local tree = expansion_result.tree
 
     if tree ~= nil then
         local output = tree:get_output()
