@@ -228,7 +228,7 @@ local function get_expansion_result()
 
     local cursor = a.nvim_win_get_cursor(0)
     local bufnr = a.nvim_win_get_buf(0)
-    local line = a.nvim_buf_get_lines(bufr, cursor[1] - 1, cursor[1], true)[1]
+    local line = a.nvim_buf_get_lines(bufnr, cursor[1] - 1, cursor[1], true)[1]
     local before_cursor = line:sub(0, cursor[2])
 
     local expansion = get_expansion(before_cursor)
