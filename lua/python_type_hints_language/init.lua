@@ -238,6 +238,10 @@ local function get_expansion_result()
 
     local tree = parse(parse_target.text)
 
+    if not tree then
+        return nil
+    end
+
     return {
         bufnr = bufnr,
         cursor = cursor,
