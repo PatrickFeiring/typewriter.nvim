@@ -80,13 +80,14 @@ local function parse_char(char)
     elseif char == "l" then
         return Node.new("list", 1)
     elseif char == "L" then
-        return Node.new("Literal", math.huge)
+        -- We need to alter the algorithm before we allows an unlimited number of args
+        return Node.new("Literal", 100) -- math.huge)
     elseif char == "O" or char == "o" then
         return Node.new("Optional", 1)
     elseif char == "t" then
-        return Node.new("tuple", math.huge)
+        return Node.new("tuple", 100) --math.huge)
     elseif char == "U" or char == "u" then
-        return Node.new("Union", math.huge)
+        return Node.new("Union", 100) -- math.huge)
     end
 
     return nil
