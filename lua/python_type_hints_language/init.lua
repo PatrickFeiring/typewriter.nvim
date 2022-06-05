@@ -141,7 +141,7 @@ local function parse(snippet_text)
     return tree
 end
 
-local function get_stop(before_cursor, i)
+local function find_type_delimiter(before_cursor, i)
     local char = before_cursor:sub(i, i)
 
     if char == ":" then
@@ -181,40 +181,39 @@ local function get_stop(before_cursor, i)
     return nil
 end
 
-local function get_expansion(before_cursor)
+local function find_parse_target(line, cursor)
+    local before_cursor = line:sub(0, cursor[2])
+
+    -- If we hit a space we count that as a type delimiter regardless, and
+    -- rather fill in the type delimiter ourselves
+    local start_space = nil
+
     for i = #before_cursor, 1, -1 do
-        local stop = get_stop(before_cursor, i)
-
-        if stop then
-            return {
-                start = i + 1,
-                replace = i + 1,
-                prefix = stop.prefix,
-            }
-        end
-
         if before_cursor:sub(i, i) == " " then
-            for j = i - 1, 1, -1 do
-                local char = before_cursor:sub(j, j)
+            if start_space == nil then
+                start_space = i
+            end
+        else
+            local delimiter = find_type_delimiter(before_cursor, i)
 
-                if char == " " then
-                else
-                    local stop = get_stop(before_cursor, j)
+            if delimiter then
+                local start_text = i
 
-                    if stop then
-                        return {
-                            start = i + 1,
-                            replace = j + 1,
-                            prefix = stop.prefix,
-                        }
-                    else
-                        return {
-                            start = i + 1,
-                            replace = j + 1,
-                            prefix = ": ",
-                        }
-                    end
+                if start_space ~= nil then
+                    start_text = start_space
                 end
+
+                return {
+                    replace = i + 1,
+                    prefix = delimiter.prefix,
+                    text = before_cursor:sub(start_text + 1, cursor[2]),
+                }
+            elseif start_space ~= nil then
+                return {
+                    replace = i + 1,
+                    prefix = ": ",
+                    text = before_cursor:sub(start_space + 1, cursor[2]),
+                }
             end
         end
     end
@@ -230,21 +229,20 @@ local function get_expansion_result()
     local cursor = a.nvim_win_get_cursor(0)
     local bufnr = a.nvim_win_get_buf(0)
     local line = a.nvim_buf_get_lines(bufnr, cursor[1] - 1, cursor[1], true)[1]
-    local before_cursor = line:sub(0, cursor[2])
 
-    local expansion = get_expansion(before_cursor)
+    local parse_target = find_parse_target(line, cursor)
 
-    if not expansion then
+    if not parse_target then
         return nil
     end
 
-    local tree = parse(before_cursor:sub(expansion.start, cursor[2]))
+    local tree = parse(parse_target.text)
 
     return {
         bufnr = bufnr,
         cursor = cursor,
         tree = tree,
-        expansion = expansion,
+        expansion = parse_target,
     }
 end
 
