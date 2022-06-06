@@ -49,6 +49,46 @@ local function find_type_delimiter(before_cursor, i)
     return nil
 end
 
+local function find_suffix(line, cursor, context)
+    if #line == 0 then
+        return ""
+    end
+
+    if context == CONTEXT_FUNCTION then
+        if not line:sub(cursor[2], #line):find(":") then
+            return ":"
+        end
+
+        return ""
+    else
+        -- It's not completely straight forward to distinguish between the
+        -- cases where we are defining a variable, and where we'd like to add
+        -- = if it is missing, and the case where we are in a functions multi
+        -- line argument list, and where we don't want to add it. This is a
+        -- rudimentary check, we might consider moving this to treesitter
+        -- later
+        local after_cursor = line:sub(cursor[2] + 1, #line)
+        local non_space_after_cursor = false
+
+        for j = 1, #after_cursor do
+            if after_cursor:sub(j, j) ~= " " then
+                non_space_after_cursor = true
+                break
+            end
+        end
+
+        if non_space_after_cursor then
+            return ""
+        end
+
+        if line:sub(1, 1) ~= " " then
+            return " = "
+        end
+
+        return ""
+    end
+end
+
 local function find_parse_target(line, cursor)
     local before_cursor = line:sub(0, cursor[2])
 
@@ -71,21 +111,11 @@ local function find_parse_target(line, cursor)
                     start_text = start_space
                 end
 
-                local suffix = ""
-
-                if delimiter.context == CONTEXT_FUNCTION then
-                    -- Fill in missing : in function definitions if not there
-                    -- already
-                    if not line:sub(cursor[2], #line):find(":") then
-                        suffix = ":"
-                    end
-                end
-
                 return {
                     replace_from = i + 1,
                     replace_to = cursor[2] + 1,
                     prefix = delimiter.prefix,
-                    suffix = suffix,
+                    suffix = find_suffix(line, cursor, delimiter.context),
                     text = before_cursor:sub(start_text + 1, cursor[2]),
                 }
             elseif start_space ~= nil then
@@ -93,7 +123,7 @@ local function find_parse_target(line, cursor)
                     replace_from = i + 1,
                     replace_to = cursor[2] + 1,
                     prefix = ": ",
-                    suffix = "",
+                    suffix = find_suffix(line, cursor),
                     text = before_cursor:sub(start_space + 1, cursor[2]),
                 }
             end
