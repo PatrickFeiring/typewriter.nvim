@@ -5,6 +5,8 @@ local language_detection = require(
     "python_type_hints_language.language_detection"
 )
 
+CONTEXT_FUNCTION = 1
+
 local function find_type_delimiter(before_cursor, i)
     local char = before_cursor:sub(i, i)
 
@@ -19,6 +21,7 @@ local function find_type_delimiter(before_cursor, i)
     elseif char == ")" then
         return {
             prefix = " -> ",
+            context = CONTEXT_FUNCTION,
         }
     elseif char == "," then
         return {
@@ -35,6 +38,7 @@ local function find_type_delimiter(before_cursor, i)
     if multi == "->" then
         return {
             prefix = " ",
+            context = CONTEXT_FUNCTION,
         }
     elseif multi == ", " then
         return {
@@ -67,15 +71,29 @@ local function find_parse_target(line, cursor)
                     start_text = start_space
                 end
 
+                local suffix = ""
+
+                if delimiter.context == CONTEXT_FUNCTION then
+                    -- Fill in missing : in function definitions if not there
+                    -- already
+                    if not line:sub(cursor[2], #line):find(":") then
+                        suffix = ":"
+                    end
+                end
+
                 return {
-                    replace = i + 1,
+                    replace_from = i + 1,
+                    replace_to = cursor[2] + 1,
                     prefix = delimiter.prefix,
+                    suffix = suffix,
                     text = before_cursor:sub(start_text + 1, cursor[2]),
                 }
             elseif start_space ~= nil then
                 return {
-                    replace = i + 1,
+                    replace_from = i + 1,
+                    replace_to = cursor[2] + 1,
                     prefix = ": ",
+                    suffix = "",
                     text = before_cursor:sub(start_space + 1, cursor[2]),
                 }
             end
@@ -252,11 +270,12 @@ local function parse()
 
     return {
         bufnr = bufnr,
-        tree = tree,
-        prefix = target.prefix,
         line = cursor[1],
-        replace_from = target.replace,
-        replace_to = cursor[2] + 1,
+        replace_from = target.replace_from,
+        replace_to = target.replace_to,
+        prefix = target.prefix,
+        tree = tree,
+        suffix = target.suffix,
     }
 end
 
@@ -280,15 +299,23 @@ function M.expand()
         result.replace_from - 1,
         result.line - 1,
         result.replace_to - 1,
-        { result.prefix .. output.text }
+        { result.prefix .. output.text .. result.suffix }
     )
 
     local col
 
     if #output.marks > 0 then
-        col = result.replace_from - 1 + #result.prefix + output.marks[1]
+        col = result.replace_from
+            - 1
+            + #result.prefix
+            + output.marks[1]
+            + #result.suffix
     else
-        col = result.replace_from - 1 + #result.prefix + #output.text
+        col = result.replace_from
+            - 1
+            + #result.prefix
+            + #output.text
+            + #result.suffix
     end
 
     a.nvim_win_set_cursor(0, { result.line, col })
