@@ -5,6 +5,86 @@ local language_detection = require(
     "python_type_hints_language.language_detection"
 )
 
+local function find_type_delimiter(before_cursor, i)
+    local char = before_cursor:sub(i, i)
+
+    if char == ":" then
+        return {
+            prefix = " ",
+        }
+    elseif char == "[" then
+        return {
+            prefix = "",
+        }
+    elseif char == ")" then
+        return {
+            prefix = " -> ",
+        }
+    elseif char == "," then
+        return {
+            prefix = " ",
+        }
+    end
+
+    if i == 1 then
+        return nil
+    end
+
+    local multi = before_cursor:sub(i - 1, i)
+
+    if multi == "->" then
+        return {
+            prefix = " ",
+        }
+    elseif multi == ", " then
+        return {
+            prefix = "",
+        }
+    end
+
+    return nil
+end
+
+local function find_parse_target(line, cursor)
+    local before_cursor = line:sub(0, cursor[2])
+
+    -- If we hit a space we count that as a type delimiter regardless, and
+    -- rather fill in the type delimiter ourselves
+    local start_space = nil
+
+    for i = #before_cursor, 1, -1 do
+        if before_cursor:sub(i, i) == " " then
+            if start_space == nil then
+                start_space = i
+            end
+        else
+            local delimiter = find_type_delimiter(before_cursor, i)
+
+            if delimiter then
+                local start_text = i
+
+                if start_space ~= nil then
+                    start_text = start_space
+                end
+
+                return {
+                    replace = i + 1,
+                    prefix = delimiter.prefix,
+                    text = before_cursor:sub(start_text + 1, cursor[2]),
+                }
+            elseif start_space ~= nil then
+                return {
+                    replace = i + 1,
+                    prefix = ": ",
+                    text = before_cursor:sub(start_space + 1, cursor[2]),
+                }
+            end
+        end
+    end
+
+    return nil
+end
+
 local Node = {}
 Node.__index = Node
 
@@ -105,21 +185,19 @@ end
 
 -- Parses a snippet into a type tree
 --
--- Returns a valid tree, but it might miss some nodes, e.g. an Optional[] that
--- does not contain python type, but should have a user defined type instead,
--- and would thus not be expressible with this language.
---
--- @param snippet text
-local function parse(snippet_text)
-    if #snippet_text == 0 then
+-- Returns a valid tree, but it might miss some nodes, e.g. an Optional[]
+-- that does not contain python type, but should have a user defined type
+-- instead, and would thus not be expressible with this language.
+local function parse_target(target)
+    if #target.text == 0 then
         return
     end
 
     local tree = nil
     local current = nil
 
-    for i = 1, #snippet_text do
-        local char = snippet_text:sub(i, i)
+    for i = 1, #target.text do
+        local char = target.text:sub(i, i)
         local node = parse_char(char)
 
         if not node then
@@ -151,87 +229,7 @@ local function parse(snippet_text)
     return tree
 end
 
-local function find_type_delimiter(before_cursor, i)
-    local char = before_cursor:sub(i, i)
-
-    if char == ":" then
-        return {
-            prefix = " ",
-        }
-    elseif char == "[" then
-        return {
-            prefix = "",
-        }
-    elseif char == ")" then
-        return {
-            prefix = " -> ",
-        }
-    elseif char == "," then
-        return {
-            prefix = " ",
-        }
-    end
-
-    if i == 1 then
-        return nil
-    end
-
-    local multi = before_cursor:sub(i - 1, i)
-
-    if multi == "->" then
-        return {
-            prefix = " ",
-        }
-    elseif multi == ", " then
-        return {
-            prefix = "",
-        }
-    end
-
-    return nil
-end
-
-local function find_parse_target(line, cursor)
-    local before_cursor = line:sub(0, cursor[2])
-
-    -- If we hit a space we count that as a type delimiter regardless, and
-    -- rather fill in the type delimiter ourselves
-    local start_space = nil
-
-    for i = #before_cursor, 1, -1 do
-        if before_cursor:sub(i, i) == " " then
-            if start_space == nil then
-                start_space = i
-            end
-        else
-            local delimiter = find_type_delimiter(before_cursor, i)
-
-            if delimiter then
-                local start_text = i
-
-                if start_space ~= nil then
-                    start_text = start_space
-                end
-
-                return {
-                    replace = i + 1,
-                    prefix = delimiter.prefix,
-                    text = before_cursor:sub(start_text + 1, cursor[2]),
-                }
-            elseif start_space ~= nil then
-                return {
-                    replace = i + 1,
-                    prefix = ": ",
-                    text = before_cursor:sub(start_space + 1, cursor[2]),
-                }
-            end
-        end
-    end
-
-    return nil
-end
-
-local function get_expansion_result()
+local function parse()
     if language_detection.from_treesitter_or_filetype() ~= "python" then
         return nil
     end
@@ -240,13 +238,13 @@ local function get_expansion_result()
     local bufnr = a.nvim_win_get_buf(0)
     local line = a.nvim_buf_get_lines(bufnr, cursor[1] - 1, cursor[1], true)[1]
 
-    local parse_target = find_parse_target(line, cursor)
+    local target = find_parse_target(line, cursor)
 
-    if not parse_target then
+    if not target then
         return nil
     end
 
-    local tree = parse(parse_target.text)
+    local tree = parse_target(target)
 
     if not tree then
         return nil
@@ -254,52 +252,48 @@ local function get_expansion_result()
 
     return {
         bufnr = bufnr,
-        cursor = cursor,
         tree = tree,
-        expansion = parse_target,
+        prefix = target.prefix,
+        line = cursor[1],
+        replace_from = target.replace,
+        replace_to = cursor[2] + 1,
     }
 end
 
 function M.expandable()
-    return get_expansion_result() ~= nil
+    return parse() ~= nil
 end
 
 function M.expand()
-    local expansion_result = get_expansion_result()
+    local result = parse()
 
-    if expansion_result == nil then
+    if result == nil then
         return nil
     end
 
-    local bufnr = expansion_result.bufnr
-    local cursor = expansion_result.cursor
-    local expansion = expansion_result.expansion
-    local tree = expansion_result.tree
+    local output = result.tree:get_output()
 
-    if tree ~= nil then
-        local output = tree:get_output()
+    -- From lua 1 based to 0 based
+    a.nvim_buf_set_text(
+        result.bufnr,
+        result.line - 1,
+        result.replace_from - 1,
+        result.line - 1,
+        result.replace_to - 1,
+        { result.prefix .. output.text }
+    )
 
-        a.nvim_buf_set_text(
-            bufnr,
-            cursor[1] - 1,
-            expansion.replace - 1, -- From lua 1 based to 0 based
-            cursor[1] - 1,
-            cursor[2],
-            { expansion.prefix .. output.text }
-        )
+    local col
 
-        if #output.marks > 0 then
-            col = expansion.replace - 1 + #expansion.prefix + output.marks[1]
-        else
-            col = expansion.replace - 1 + #expansion.prefix + #output.text
-        end
-
-        a.nvim_win_set_cursor(0, { cursor[1], col })
-
-        return true
+    if #output.marks > 0 then
+        col = result.replace_from - 1 + #result.prefix + output.marks[1]
+    else
+        col = result.replace_from - 1 + #result.prefix + #output.text
     end
 
-    return false
+    a.nvim_win_set_cursor(0, { result.line, col })
+
+    return true
 end
 
 return M
