@@ -8,16 +8,15 @@ local language_detection = require(
 local Node = {}
 Node.__index = Node
 
--- A node in a type
---
--- @param n The number of children if the type is generic.
-function Node.new(name, n, parent)
-    n = n or 0
+function Node.new(name, min_children, max_children, parent)
+    min_children = min_children or 0
+    max_children = max_children or min_children
 
     local self = setmetatable({
         name = name,
+        min_children = min_children,
+        max_children = max_children,
         parent = parent,
-        n = n,
         children = {},
     }, Node)
 
@@ -28,7 +27,7 @@ function Node:get_output()
     local text = self.name
     local marks = {}
 
-    if self.n > 0 then
+    if self.min_children > 0 or #self.children > 0 then
         text = text .. "["
 
         for i = 1, #self.children do
@@ -45,8 +44,10 @@ function Node:get_output()
             text = text .. output.text
         end
 
-        -- We could have more children
-        if self.n > #self.children then
+        -- We should have more children, in the case were we could
+        -- potentially have more children, we require the user to type ,
+        -- explicitly
+        if self.min_children > #self.children then
             if #self.children > 0 then
                 text = text .. ", "
             end
@@ -72,27 +73,31 @@ local function parse_char(char)
         return Node.new("float")
     elseif char == "i" then
         return Node.new("int")
+    elseif char == "n" or char == "N" then
+        -- Only makes sense in function return type, I guess, the rest is Optional
+        return Node.new("None")
     elseif char == "s" then
         return Node.new("str")
+    elseif char == "S" then
+        return Node.new("Self")
     end
 
     if char == "d" then
         return Node.new("dict", 2)
     elseif char == "F" then
-        return Node.new("Final", 1)
+        return Node.new("Final", 0, 1)
     elseif char == "I" then
         return Node.new("Iterator", 1)
     elseif char == "l" then
         return Node.new("list", 1)
     elseif char == "L" then
-        -- We need to alter the algorithm before we allows an unlimited number of args
-        return Node.new("Literal", math.huge)
+        return Node.new("Literal", 1, math.huge)
     elseif char == "O" or char == "o" then
         return Node.new("Optional", 1)
     elseif char == "t" then
-        return Node.new("tuple", math.huge)
+        return Node.new("tuple", 2, math.huge)
     elseif char == "U" or char == "u" then
-        return Node.new("Union", math.huge)
+        return Node.new("Union", 2, math.huge)
     end
 
     return nil
@@ -124,7 +129,7 @@ local function parse(snippet_text)
         if tree then
             -- Find placement in the tree, iteraitvely seeing if the current
             -- node has room for more children
-            while #current.children >= current.n do
+            while #current.children >= current.max_children do
                 current = current.parent
 
                 if not current then
