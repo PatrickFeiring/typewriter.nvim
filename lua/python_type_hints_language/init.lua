@@ -31,22 +31,27 @@ function Node:get_output()
     if self.n > 0 then
         text = text .. "["
 
-        for i = 1, self.n do
+        for i = 1, #self.children do
             if i > 1 then
                 text = text .. ", "
             end
 
-            if i > #self.children then
-                table.insert(marks, #text)
-            else
-                output = self.children[i]:get_output(child)
+            output = self.children[i]:get_output(child)
 
-                for j = 1, #output.marks do
-                    table.insert(marks, #text + output.marks[j])
-                end
-
-                text = text .. output.text
+            for j = 1, #output.marks do
+                table.insert(marks, #text + output.marks[j])
             end
+
+            text = text .. output.text
+        end
+
+        -- We could have more children
+        if self.n > #self.children then
+            if #self.children > 0 then
+                text = text .. ", "
+            end
+
+            table.insert(marks, #text)
         end
 
         text = text .. "]"
@@ -81,13 +86,13 @@ local function parse_char(char)
         return Node.new("list", 1)
     elseif char == "L" then
         -- We need to alter the algorithm before we allows an unlimited number of args
-        return Node.new("Literal", 100) -- math.huge)
+        return Node.new("Literal", math.huge)
     elseif char == "O" or char == "o" then
         return Node.new("Optional", 1)
     elseif char == "t" then
-        return Node.new("tuple", 100) --math.huge)
+        return Node.new("tuple", math.huge)
     elseif char == "U" or char == "u" then
-        return Node.new("Union", 100) -- math.huge)
+        return Node.new("Union", math.huge)
     end
 
     return nil
