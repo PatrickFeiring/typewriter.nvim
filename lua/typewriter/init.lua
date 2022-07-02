@@ -1,9 +1,7 @@
 local M = {}
 
 local a = vim.api
-local language_detection = require(
-    "python_type_hints_language.language_detection"
-)
+local language_detection = require("typewriter.language_detection")
 
 CONTEXT_FUNCTION = 1
 
