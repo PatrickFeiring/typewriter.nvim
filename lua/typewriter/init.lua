@@ -2,6 +2,7 @@ local M = {}
 
 local a = vim.api
 local language_detection = require("typewriter.language_detection")
+local tree = require("typewriter.tree")
 
 CONTEXT_FUNCTION = 1
 
@@ -131,99 +132,40 @@ local function find_parse_target(line, cursor)
     return nil
 end
 
-local Node = {}
-Node.__index = Node
-
-function Node.new(name, min_children, max_children, parent)
-    min_children = min_children or 0
-    max_children = max_children or min_children
-
-    local self = setmetatable({
-        name = name,
-        min_children = min_children,
-        max_children = max_children,
-        parent = parent,
-        children = {},
-    }, Node)
-
-    return self
-end
-
-function Node:get_output()
-    local text = self.name
-    local marks = {}
-
-    if self.min_children > 0 or #self.children > 0 then
-        text = text .. "["
-
-        for i = 1, #self.children do
-            if i > 1 then
-                text = text .. ", "
-            end
-
-            output = self.children[i]:get_output(child)
-
-            for j = 1, #output.marks do
-                table.insert(marks, #text + output.marks[j])
-            end
-
-            text = text .. output.text
-        end
-
-        -- We should have more children, in the case were we could
-        -- potentially have more children, we require the user to type ,
-        -- explicitly
-        if self.min_children > #self.children then
-            if #self.children > 0 then
-                text = text .. ", "
-            end
-
-            table.insert(marks, #text)
-        end
-
-        text = text .. "]"
-    end
-
-    return {
-        text = text,
-        marks = marks,
-    }
-end
-
 local function parse_char(char)
     if char == "A" then
-        return Node.new("Any")
+        return tree.Node.new("Any")
     elseif char == "b" then
-        return Node.new("bool")
+        return tree.Node.new("bool")
     elseif char == "f" then
-        return Node.new("float")
+        return tree.Node.new("float")
     elseif char == "i" then
-        return Node.new("int")
+        return tree.Node.new("int")
     elseif char == "n" or char == "N" then
         -- Only makes sense in function return type, I guess, the rest is Optional
-        return Node.new("None")
+        return tree.Node.new("None")
     elseif char == "s" then
-        return Node.new("str")
+        return tree.Node.new("str")
     elseif char == "S" then
-        return Node.new("Self")
+        return tree.Node.new("Self")
     end
 
     if char == "d" then
-        return Node.new("dict", 2)
+        return tree.Node.new("dict", 2)
     elseif char == "F" then
-        return Node.new("Final", 0, 1)
+        return tree.Node.new("Final", 0, 1)
     elseif char == "I" then
-        return Node.new("Iterator", 1)
+        return tree.Node.new("Iterator", 1)
     elseif char == "l" then
-        return Node.new("list", 1)
+        return tree.Node.new("list", 1)
     elseif char == "L" then
-        return Node.new("Literal", 1, math.huge)
+        return tree.Node.new("Literal", 1, math.huge)
     elseif char == "O" or char == "o" then
-        return Node.new("Optional", 1)
+        return tree.Node.new("Optional", 1)
     elseif char == "t" then
-        return Node.new("tuple", 2, math.huge)
+        return tree.Node.new("tuple", 2, math.huge)
     elseif char == "U" or char == "u" then
-        return Node.new("Union", 2, math.huge)
+        return tree.Node.new("Union", 2, math.huge)
     end
 
     return nil
