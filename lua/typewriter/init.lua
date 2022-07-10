@@ -2,7 +2,7 @@ local M = {}
 
 local a = vim.api
 local language_detection = require("typewriter.language_detection")
-local tree = require("typewriter.tree")
+local parsers = require("typewriter.parsers")
 
 CONTEXT_FUNCTION = 1
 
@@ -132,94 +132,16 @@ local function find_parse_target(line, cursor)
     return nil
 end
 
-local function parse_char(char)
-    if char == "A" then
-        return tree.Node.new("Any")
-    elseif char == "b" then
-        return tree.Node.new("bool")
-    elseif char == "f" then
-        return tree.Node.new("float")
-    elseif char == "i" then
-        return tree.Node.new("int")
-    elseif char == "n" or char == "N" then
-        -- Only makes sense in function return type, I guess, the rest is Optional
-        return tree.Node.new("None")
-    elseif char == "s" then
-        return tree.Node.new("str")
-    elseif char == "S" then
-        return tree.Node.new("Self")
-    end
-
-    if char == "d" then
-        return tree.Node.new("dict", 2)
-    elseif char == "F" then
-        return tree.Node.new("Final", 0, 1)
-    elseif char == "I" then
-        return tree.Node.new("Iterator", 1)
-    elseif char == "l" then
-        return tree.Node.new("list", 1)
-    elseif char == "L" then
-        return tree.Node.new("Literal", 1, math.huge)
-    elseif char == "O" or char == "o" then
-        return tree.Node.new("Optional", 1)
-    elseif char == "t" then
-        return tree.Node.new("tuple", 2, math.huge)
-    elseif char == "U" or char == "u" then
-        return tree.Node.new("Union", 2, math.huge)
-    end
-
-    return nil
-end
-
--- Parses a snippet into a type tree
---
--- Returns a valid tree, but it might miss some nodes, e.g. an Optional[]
--- that does not contain python type, but should have a user defined type
--- instead, and would thus not be expressible with this language.
-local function parse_target(target)
-    if #target.text == 0 then
-        return
-    end
-
-    local tree = nil
-    local current = nil
-
-    for i = 1, #target.text do
-        local char = target.text:sub(i, i)
-        local node = parse_char(char)
-
-        if not node then
-            return
-        end
-
-        if tree then
-            -- Find placement in the tree, iteraitvely seeing if the current
-            -- node has room for more children
-            while #current.children >= current.max_children do
-                current = current.parent
-
-                if not current then
-                    return nil
-                end
-            end
-
-            node.parent = current
-            table.insert(current.children, node)
-            -- we always create a tree depth first, the go back up later, if
-            -- there are no more space
-            current = node
-        else
-            tree = node
-            current = node
-        end
-    end
-
-    return tree
-end
-
 local function parse()
-    if language_detection.from_treesitter_or_filetype() ~= "python" then
-        return nil
+    local lang = language_detection.from_treesitter_or_filetype()
+    local parser = nil
+
+    if lang == "python" then
+        parser = parsers.Parser.new()
+    end
+
+    if not parser then
+        return
     end
 
     local cursor = a.nvim_win_get_cursor(0)
@@ -232,7 +154,7 @@ local function parse()
         return nil
     end
 
-    local tree = parse_target(target)
+    local tree = parser:parse(target.text)
 
     if not tree then
         return nil
