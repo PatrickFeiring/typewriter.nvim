@@ -137,7 +137,9 @@ local function parse()
     local parser = nil
 
     if lang == "python" then
-        parser = parsers.Parser.new()
+        parser = parsers.PythonParser:new()
+    elseif lang == "rust" then
+        parser = parsers.RustParser:new()
     end
 
     if not parser then

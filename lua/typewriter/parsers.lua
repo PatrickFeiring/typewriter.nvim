@@ -3,12 +3,12 @@ local M = {}
 local tree = require("typewriter.tree")
 
 local Parser = {}
-Parser.__index = Parser
 
-function Parser.new()
-    local self = setmetatable({}, Parser)
-
-    return self
+function Parser:new(o)
+    o = o or {}
+    setmetatable(o, self)
+    self.__index = self
+    return o
 end
 
 -- Parses a snippet into a type tree
@@ -57,7 +57,9 @@ function Parser:parse(text)
     return tree
 end
 
-function Parser:parse_char(char)
+PythonParser = Parser:new()
+
+function PythonParser:parse_char(char)
     if char == "A" then
         return tree.Node.new("Any")
     elseif char == "b" then
@@ -96,6 +98,17 @@ function Parser:parse_char(char)
     return nil
 end
 
-M.Parser = Parser
+RustParser = Parser:new()
+
+function RustParser:parse_char(char)
+    if char == "b" then
+        return tree.Node.new("bool")
+    end
+
+    return nil
+end
+
+M.PythonParser = PythonParser
+M.RustParser = RustParser
 
 return M
