@@ -1,24 +1,44 @@
 local M = {}
 
-local Node = {}
-Node.__index = Node
+local Primitive = {}
 
-function Node.new(name, min_children, max_children, parent)
+function Primitive:new(name, parent)
+    local o = setmetatable({
+        name = name,
+        min_children = 0,
+        max_children = 0,
+        parent = parent,
+        children = {},
+    }, self)
+    self.__index = self
+    return o
+end
+
+function Primitive:get_output()
+    return {
+        text = self.name,
+        marks = {},
+    }
+end
+
+local Generic = {}
+
+function Generic:new(name, min_children, max_children, parent)
     min_children = min_children or 0
     max_children = max_children or min_children
 
-    local self = setmetatable({
+    local o = setmetatable({
         name = name,
         min_children = min_children,
         max_children = max_children,
         parent = parent,
         children = {},
-    }, Node)
-
-    return self
+    }, self)
+    self.__index = self
+    return o
 end
 
-function Node:get_output()
+function Generic:get_output()
     local text = self.name
     local marks = {}
 
@@ -59,6 +79,7 @@ function Node:get_output()
     }
 end
 
-M.Node = Node
+M.Primitive = Primitive
+M.Generic = Generic
 
 return M

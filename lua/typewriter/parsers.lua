@@ -61,38 +61,38 @@ PythonParser = Parser:new()
 
 function PythonParser:parse_char(char)
     if char == "A" then
-        return tree.Node.new("Any")
+        return tree.Primitive:new("Any")
     elseif char == "b" then
-        return tree.Node.new("bool")
+        return tree.Primitive:new("bool")
     elseif char == "f" then
-        return tree.Node.new("float")
+        return tree.Primitive:new("float")
     elseif char == "i" then
-        return tree.Node.new("int")
+        return tree.Primitive:new("int")
     elseif char == "n" or char == "N" then
         -- Only makes sense in function return type, I guess, the rest is Optional
-        return tree.Node.new("None")
+        return tree.Primitive:new("None")
     elseif char == "s" then
-        return tree.Node.new("str")
+        return tree.Primitive:new("str")
     elseif char == "S" then
-        return tree.Node.new("Self")
+        return tree.Primitive:new("Self")
     end
 
     if char == "d" then
-        return tree.Node.new("dict", 2)
+        return tree.Generic:new("dict", 2)
     elseif char == "F" then
-        return tree.Node.new("Final", 0, 1)
+        return tree.Generic:new("Final", 0, 1)
     elseif char == "I" then
-        return tree.Node.new("Iterator", 1)
+        return tree.Generic:new("Iterator", 1)
     elseif char == "l" then
-        return tree.Node.new("list", 1)
+        return tree.Generic:new("list", 1)
     elseif char == "L" then
-        return tree.Node.new("Literal", 1, math.huge)
+        return tree.Generic:new("Literal", 1, math.huge)
     elseif char == "O" or char == "o" then
-        return tree.Node.new("Optional", 1)
+        return tree.Generic:new("Optional", 1)
     elseif char == "t" then
-        return tree.Node.new("tuple", 2, math.huge)
+        return tree.Generic:new("tuple", 2, math.huge)
     elseif char == "U" or char == "u" then
-        return tree.Node.new("Union", 2, math.huge)
+        return tree.Generic:new("Union", 2, math.huge)
     end
 
     return nil
@@ -102,7 +102,7 @@ RustParser = Parser:new()
 
 function RustParser:parse_char(char)
     if char == "b" then
-        return tree.Node.new("bool")
+        return tree.Primitive:new("bool")
     end
 
     return nil
