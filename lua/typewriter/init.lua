@@ -199,11 +199,7 @@ function M.expand()
     local col
 
     if #output.marks > 0 then
-        col = result.replace_from
-            - 1
-            + #result.prefix
-            + output.marks[1]
-            + #result.suffix
+        col = result.replace_from - 1 + #result.prefix + output.marks[1]
     else
         col = result.replace_from
             - 1
